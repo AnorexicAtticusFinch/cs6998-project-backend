@@ -1,0 +1,599 @@
+swagger: '2.0'
+info:
+  title: Columbia Connect Service API
+  description: 'Columbia Connect Application, built during the Cloud and Big Data course as a part of course project at Columbia University.'
+  version: 1.0.0
+schemes:
+  - https
+basePath: /v1
+produces:
+  - application/json
+paths:
+  /signup:
+    post:
+      summary: The endpoint for signing up a new user.
+      description: |
+        Creates a new user account
+      tags:
+        - Platform
+      operationId: signupUser
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UserProfile'
+      responses:
+        '200':
+          description: Profile created successfully
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+            
+  /users/{userId}:
+    get:
+      summary: Returns a user by ID.
+      description: |
+        Return user info
+      tags:
+        - Platform
+      operationId: userInfo
+      produces:
+        - application/json
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The ID of the user to return.
+          type: string
+      responses:
+        '200':
+          description: A user object.
+          schema:
+            $ref: '#/definitions/UserProfile'
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: A user with the specified ID was not found.
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          
+  /resume-request/{userId}:
+    get:
+      summary: Returns the history of a user requests by ID
+      description: |
+        Returns resume review history of a user
+      tags:
+        - Resume Review
+      operationId: userResumeReviewHistory
+      produces:
+        - application/json
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The ID of the user to return.
+          type: string
+      responses:
+        '200':
+          description: A user history object.
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/ResumeHistory'
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: A user with the specified ID was not found.
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          
+  /referral-request/{userId}:
+    get:
+      summary: Returns the history of a user requests by ID
+      description: |
+        Returns referrals history of a user
+      tags:
+        - Referral
+      operationId: userReferralHistory
+      produces:
+        - application/json
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The ID of the user to return.
+          type: string
+      responses:
+        '200':
+          description: A user history object.
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/ReferralHistory'
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: A user with the specified ID was not found.
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error          
+          
+  /users/getReviewers:
+    post:
+      summary: Returns the list of potential reviewers
+      description: |
+        Returns the list of potential reviewers
+      tags:
+        - Platform
+      operationId: resumeReviewers
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              keywords:
+                type: string
+              resumeId:
+                type: string
+      responses:
+        '200':
+          description: A list of resume reviewers
+          schema:
+            type: array
+            items:
+              type: string
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: A user with the specified ID was not found.
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error 
+          
+          
+  /resume-request:
+    post:
+      summary: Create request with selected reviewers
+      description: |
+        Requests selected reviewers and returns if successful
+      tags:
+        - Resume Review
+      operationId: requestResumeReview
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: List of user IDs of the reviewers
+          schema:
+            type: object
+            properties:
+              userId:
+                type: string
+              reviewers:
+                type: array
+                items:
+                  type: string
+      responses:
+        '200':
+          description: A user object.
+          schema:
+            $ref: '#/definitions/UserProfile'
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: A user with the specified ID was not found.
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error 
+
+  /upload-resume:
+    post:
+      summary: Upload resume
+      description: |
+        Uploads a new resume and returns if successful
+      tags:
+        - Resume Review
+      operationId: uploadResume
+      produces:
+        - application/json
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: resumeFile
+          in: formData
+          required: true
+          description: Resume file (PDF)
+          type: file
+        - name: userId
+          in: formData
+          required: true
+          description: UserID of the uploader
+          type: string
+      responses:
+        '200':
+          description: Upload successful
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          
+  /users/getReferrers:
+    get:
+      summary: Filter alumni/referrers by keywords and company
+      description: |
+        Filter alumni/referrers by keywords and company
+      tags:
+        - Platform
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              keywords:
+                type: string
+              company:
+                type: string
+      responses:
+        '200':
+          description: A list of alumni that match the specified criteria
+          schema:
+            $ref: '#/definitions/AlumniList'
+          
+  /referral-request:
+    post:
+      summary: Requests referral from selected users
+      description: |
+        Requests referral from selected users
+      tags:
+        - Referral
+      operationId: requestReferral
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: List of user IDs of the referrers
+          schema:
+            type: object
+            properties:
+              userId:
+                type: string
+              reviewers:
+                type: array
+                items:
+                  type: string
+      responses:
+        '200':
+          description: A user object.
+          schema:
+            $ref: '#/definitions/UserProfile'
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: A user with the specified ID was not found.
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error         
+
+  /resume-request/{id}/{status}:
+    put:
+      summary: Update the status of a resume request
+      description: |
+        Update the status of a resume request
+      tags:
+        - Resume Review
+      parameters:
+        - name: id
+          in: path
+          description: id of the request
+          required: true
+          type: string
+        - name: status
+          in: path
+          description: status of the request
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Success
+        '500':
+          description: Internal app failure
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'            
+
+  /referral-request/{id}/{status}:
+    put:
+      summary: Update the status of a referral request
+      description: Update the status of a referral request
+      tags:
+        - Referral
+      parameters:
+        - name: id
+          in: path
+          description: id of the request
+          required: true
+          type: string
+        - name: status
+          in: path
+          description: status of the request
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Success
+        '500':
+          description: Internal app failure
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'  
+  
+  /get-specific-chat:
+    get:
+      summary: Get chat messages from a particular user
+      description: |
+        Returns a list of chat messages between 2 users
+      tags:
+        - Chat
+      operationId: getSpecificChat
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: the 2 users involved in the chat
+          schema:
+            type: object
+            properties:
+              userId:
+                type: string
+              chattingWithUserId:
+                type: string
+      responses:
+        '200':
+          description: Chat messages from a particular user
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                sender:
+                  type: string
+                message:
+                  type: string
+                timestamp:
+                  type: integer
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          
+  /post-specific-chat:
+    post:
+      summary: Post chat messages tp a particular user
+      description: |
+        Returns a list of chat messages between 2 users
+      tags:
+        - Chat
+      operationId: postSpecificChat
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: the 2 users involved in the chat
+          schema:
+            type: object
+            properties:
+              userId:
+                type: string
+              chattingWithUserId:
+                type: string
+              message:
+                type: string
+              timestamp:
+                type: integer
+      responses:
+        '200':
+          description: Message sent successfully
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          
+  /get-chats:
+    get:
+      summary: Get a list of users that this user has chat sessions with
+      description: |
+        REturns a list of users that this user has chat sessions with
+      tags:
+        - Chat
+      operationId: getChats
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: the current user
+          schema:
+            type: object
+            properties:
+              userId:
+                type: string
+      responses:
+        '200':
+          description: List of users that this user has chat sessions with
+          schema:
+            type: array
+            items:
+              type: string
+        '400':
+          description: The specified user ID is invalid.
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+            
+definitions:
+  UserProfile:
+    type: object
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      linkedinUrl:
+        type: string
+      userType:
+        type: string
+      reviewCountLeft:
+        type: integer
+      referralCountLeft:
+        type: integer
+      resumeList:
+        type: array
+        items:
+          type: string
+  AlumniList:
+    type: object
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      linkedinUrl:
+        type: string
+      company:
+        type: string
+      keywords:
+        type: string
+  ReferralHistory:
+    type: object
+    properties:
+      timestamp:
+        type: string
+        format: datetime
+      studentId:
+        type: string
+      referrerId:
+        type: string
+      status:
+        type: string
+  ResumeHistory:
+    type: object
+    properties:
+      timestamp:
+        type: string
+        format: datetime
+      studentId:
+        type: string
+      reviewerId:
+        type: string
+      resumeName:
+        type: string
+      status:
+        type: string
+  Error:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
