@@ -25,14 +25,15 @@ def send_email(id):
             Source = "b.ajay@columbia.edu",
         )
     except Exception as e:
-        print("lambda_create_referral_request: Could not send email:", str(e))
+        print("lambda_create_resume_request: Could not send email:", str(e))
 
 def main(event, context):
 
-    print("lambda_create_referral_request:", event)
+    print("lambda_create_resume_request:", event)
 
     userId = event["userId"]
     alumniId = event["reviewers"]
+    resumeId = event["resumeId"]
 
     if len(alumniId) != 1:
         return {
@@ -41,16 +42,16 @@ def main(event, context):
     alumniId = alumniId[0]
 
     try:
-        ret = create_referral_request(userId, alumniId)
+        ret = create_resume_request(userId, alumniId, resumeId)
         if ret is not None:
-            print("lambda_create_referral_request: ERROR:", ret)
+            print("lambda_create_resume_request: ERROR:", ret)
             return {
                 "error": ret
             }
         
         send_email(alumniId)
     except Exception as e:
-        print("lambda_get_referral_requests: ERROR:", str(e))
+        print("lambda_create_resume_request: ERROR:", str(e))
         return {
                 "error": str(e)
             }

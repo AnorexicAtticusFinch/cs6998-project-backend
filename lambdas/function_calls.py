@@ -24,9 +24,11 @@ db = sql.connect(
 
 dynamodb = boto3.resource("dynamodb")
 MAX_REF_COUNT = 5
+MAX_RES_COUNT = 5
 USER_PROFILE_TABLE = "UserProfile"
 USER_PROFILE_TABLE_ID = "emailId"
 USER_PROFILE_TABLE_REF_COUNT = "referralsRemaining"
+USER_PROFILE_TABLE_RES_COUNT = "resumeReviewRemaining"
 
 def parse_cursor_fetchall_referral_requests(records):
     ret = []
@@ -234,6 +236,150 @@ def create_referral_request(sid, aid):
 
     cursor = db.cursor()
     cursor.execute(f"INSERT INTO referral_requests VALUES ('{sid}', '{aid}', {int(time.time())}, '{STATUS_PENDING}')")
+    db.commit()
+
+    db.commit()
+    return None
+
+#----------------------------------------------------------------------------------------------------------------------
+
+def parse_cursor_fetchall_resume_requests(records):
+    ret = []
+
+    if records is None:
+        return ret
+
+    for record in records:
+        ret.append({
+            "sid": record[0],
+            "aid": record[1],
+            "rid": record[2],
+            "timestamp": record[3],
+            "status": record[4],
+        })
+    
+    return ret
+
+def read_res_requests(id):
+    cursor = db.cursor()
+    cursor.execute(f"SELECT * FROM resume_requests WHERE sid = '{id}' OR aid = '{id}' ORDER BY timestamp DESC")
+    ret = cursor.fetchall()
+
+    ret = parse_cursor_fetchall_resume_requests(ret)
+
+    db.commit()
+    return ret
+
+def increment_profile_table_res(id):
+    try:
+        table = dynamodb.Table(USER_PROFILE_TABLE)
+        table.update_item(
+            Key = {
+                USER_PROFILE_TABLE_ID: id,
+            },
+            UpdateExpression = f"SET {USER_PROFILE_TABLE_RES_COUNT} = {USER_PROFILE_TABLE_RES_COUNT} + :val",
+            ConditionExpression = f"{USER_PROFILE_TABLE_RES_COUNT} < :max",
+            ExpressionAttributeValues = {
+                ":val": 1,
+                ":max": MAX_RES_COUNT,
+            },
+        )
+
+        return None
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return "Invalid request (Resume count is already maximum)"
+        else:
+            return str(e)
+
+def decrement_profile_table_res(id):
+    try:
+        table = dynamodb.Table(USER_PROFILE_TABLE)
+        table.update_item(
+            TableName = USER_PROFILE_TABLE,
+            Key = {
+                USER_PROFILE_TABLE_ID: id,
+            },
+            UpdateExpression = f"SET {USER_PROFILE_TABLE_RES_COUNT} = {USER_PROFILE_TABLE_RES_COUNT} - :val",
+            ConditionExpression = f"{USER_PROFILE_TABLE_RES_COUNT} > :zero",
+            ExpressionAttributeValues = {
+                ":val": 1,
+                ":zero": 0,
+            },
+        )
+
+        return None
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return "Resume limit reached"
+        else:
+            return str(e)
+
+def update_res_request(sid, aid, rid, timestamp, newStatus):
+    cursor = db.cursor()
+    cursor.execute(f"SELECT * FROM resume_requests WHERE sid = '{sid}' AND aid = '{aid}' AND rid = '{rid}' AND timestamp = {timestamp}")
+    req = cursor.fetchall()
+
+    req = parse_cursor_fetchall_resume_requests(req)
+    if len(req) == 0:
+        return "Could not find request"
+    
+    req = req[0]
+    oldStatus = req["status"]
+
+    if newStatus not in statusChanges[oldStatus]:
+        db.commit()
+        return "Invalid status change"
+    
+    cursor = db.cursor()
+    cursor.execute(f"UPDATE resume_requests SET status = '{newStatus}' WHERE sid = '{sid}' AND aid = '{aid}' AND rid = '{rid}' AND timestamp = {timestamp}")
+    db.commit()
+
+    if newStatus == STATUS_REJECTED or newStatus == STATUS_COMPLETED:
+        ret = increment_profile_table_res(sid)
+        if ret is not None:
+            db.commit()
+            return ret
+        ret = increment_profile_table_res(aid)
+        if ret is not None:
+            db.commit()
+            return ret
+
+    if newStatus == STATUS_COMPLETED:
+        ret = remove_from_chat_table(sid, aid)
+        if ret is not None:
+            db.commit()
+            return ret
+
+    if newStatus == STATUS_ACCEPTED:
+        ret = add_to_chat_table(sid, aid)
+        if ret is not None:
+            db.commit()
+            return ret
+
+    db.commit()
+    return None
+
+def create_resume_request(sid, aid, rid):
+    cursor = db.cursor()
+    cursor.execute(f"SELECT * FROM resume_requests WHERE sid = '{sid}' AND aid = '{aid}' AND rid = '{rid}' AND status = '{STATUS_PENDING}'")
+    req = cursor.fetchall()
+    req = parse_cursor_fetchall_resume_requests(req)
+    if len(req) > 0:
+        db.commit()
+        return "These 2 users already have a pending resume request"
+
+    ret = decrement_profile_table_res(sid)
+    if ret is not None:
+        db.commit()
+        return ret
+    ret = decrement_profile_table_res(aid)
+    if ret is not None:
+        db.commit()
+        return ret
+
+    cursor = db.cursor()
+    cursor.execute(f"INSERT INTO resume_requests VALUES ('{sid}', '{aid}', '{rid}', {int(time.time())}, '{STATUS_PENDING}')")
     db.commit()
 
     db.commit()

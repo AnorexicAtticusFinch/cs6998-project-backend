@@ -22,12 +22,12 @@ def fetch_from_dynamo(id):
 
 def main(event, context):
 
-    print("lambda_get_referral_requests:", event)
+    print("lambda_get_resume_requests:", event)
     
     user_id = event["queryStringParameters"]["userId"]
 
     try:
-        tmp = read_ref_requests(user_id)
+        tmp = read_res_requests(user_id)
 
         for row in tmp:
             row["aid_profile"] = fetch_from_dynamo(row["aid"])
@@ -36,13 +36,13 @@ def main(event, context):
             "requests": tmp
         }
     except Exception as e:
-        print("lambda_get_referral_requests: ERROR:", str(e))
+        print("lambda_get_resume_requests: ERROR:", str(e))
 
         ret = {
             "error": str(e)
         }    
     
-    print("lambda_get_referral_requests:", ret)
+    print("lambda_get_resume_requests:", ret)
     
     return {
         "statusCode": 200,
