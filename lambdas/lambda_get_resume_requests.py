@@ -31,6 +31,7 @@ def main(event, context):
 
         for row in tmp:
             row["aid_profile"] = fetch_from_dynamo(row["aid"])
+            row["sid_profile"] = fetch_from_dynamo(row["sid"])
 
         ret = {
             "requests": tmp

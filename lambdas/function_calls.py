@@ -2,6 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 import pymysql as sql
 import time
+import json
 
 STATUS_PENDING = "pending"
 STATUS_REJECTED = "rejected"
@@ -128,6 +129,22 @@ def add_to_chat_table(sid, aid):
             cursor = db.cursor()
             cursor.execute(f"INSERT INTO chat_check VALUES ('{sid}', '{aid}', 1)")
             db.commit()
+
+            lambdaclient = boto3.client("lambda")
+            response = lambdaclient.invoke(
+                    FunctionName = "arn:aws:lambda:us-east-1:491877765750:function:createChimeChannel",
+                    InvocationType = "RequestResponse",
+                    Payload = json.dumps({
+                        "appInstanceArn": "arn:aws:chime:us-east-1:491877765750:app-instance/44f08432-a18d-4e00-aff8-e13948f62d5b",
+                        "name": f"{sid} <> {aid}",
+                        "sid": sid,
+                        "aid": aid,
+                    })
+            )
+
+            response = json.load(response["Payload"])
+            if response["status"] == "error":
+                return "Failed to allow chat access"
         else:
             req = req[0]
             oldCounter = req["counter"]
@@ -164,6 +181,9 @@ def remove_from_chat_table(sid, aid):
             cursor = db.cursor()
             cursor.execute(f"UPDATE chat_check SET counter = {oldCounter-1} WHERE sid = '{sid}' AND aid = '{aid}'")
             db.commit()
+
+            if oldCounter == 1:
+                pass
         
         db.commit()
         return None
