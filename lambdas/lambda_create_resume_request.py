@@ -14,12 +14,12 @@ def send_email(id):
                 "Body": {
                     "Text": {
                         "Charset": "UTF-8",
-                        "Data": "Hello fren, you have a referral request!",
+                        "Data": "Hello fren, you have a resume review request!",
                     }
                 },
                 "Subject": {
                     "Charset": "UTF-8",
-                    "Data": "Hello fren, you have a referral request!",
+                    "Data": "Hello fren, you have a resume review request!",
                 },
             },
             Source = "b.ajay@columbia.edu",

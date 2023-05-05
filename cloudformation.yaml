@@ -1,0 +1,188 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  B2BUCKETNAME:
+    Type: String
+    Default: ccbdproj-cc-resumes
+
+Resources:
+  b2:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref B2BUCKETNAME
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls : false
+        BlockPublicPolicy : false
+        IgnorePublicAcls : false
+        RestrictPublicBuckets : false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: ObjectWriter
+
+  b2BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument:
+        Id: PublicWebsitePolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjectsB2
+            Effect: Allow
+            Principal: '*'
+            Action: "s3:GetObject"
+            Resource: !Join
+              - ""
+              - - "arn:aws:s3:::"
+                - !Ref b2
+                - /*
+      Bucket: !Ref b2
+
+  apiRest:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: ccbdproj-cc-resume-uploads
+      BinaryMediaTypes:
+        - "*/*"
+
+  apiUploadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref apiRest
+      PathPart: "upload"
+      ParentId: !GetAtt apiRest.RootResourceId
+
+  apiUploadResourceBucket:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref apiRest
+      PathPart: "{bucket}"
+      ParentId: !Ref apiUploadResource
+
+  apiUploadResourceFile:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref apiRest
+      PathPart: "{filename}"
+      ParentId: !Ref apiUploadResourceBucket
+
+  apiUploadPutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref apiRest
+      ResourceId: !Ref apiUploadResourceFile
+      HttpMethod: "PUT"
+      AuthorizationType: "NONE"
+      ApiKeyRequired: false
+      RequestParameters: 
+        "method.request.header.x-amz-meta-customLabels": false
+        "method.request.path.bucket": true
+        "method.request.path.filename": true
+      MethodResponses: 
+      - 
+        ResponseModels: 
+          "application/json": "Empty"
+        ResponseParameters: 
+          "method.response.header.Access-Control-Allow-Origin": false
+        StatusCode: "200"
+      Integration: 
+        CacheNamespace: !Ref apiUploadResourceFile
+        Credentials: !GetAtt apiB2IamRole.Arn
+        IntegrationHttpMethod: "PUT"
+        IntegrationResponses: 
+        - 
+          ResponseParameters: 
+            "method.response.header.Access-Control-Allow-Origin": "'*'"
+          StatusCode: "200"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestParameters: 
+          "integration.request.header.x-amz-meta-customLabels": "method.request.header.x-amz-meta-customLabels"
+          "integration.request.path.bucket": "method.request.path.bucket"
+          "integration.request.path.filename": "method.request.path.filename"
+        TimeoutInMillis: 29000
+        Type: "AWS"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:s3:path/{bucket}/{filename}"
+
+  apiUploadOptionMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref apiRest
+      ResourceId: !Ref apiUploadResourceFile
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      ApiKeyRequired: false
+      RequestParameters: 
+        "method.request.header.x-amz-meta-customLabels": false
+      MethodResponses: 
+      - 
+        ResponseModels: 
+          "application/json": "Empty"
+        ResponseParameters: 
+          "method.response.header.Access-Control-Allow-Headers": false
+          "method.response.header.Access-Control-Allow-Methods": false
+          "method.response.header.Access-Control-Allow-Origin": false
+        StatusCode: "200"
+      Integration: 
+        CacheNamespace: !Ref apiUploadResourceFile
+        IntegrationResponses: 
+        - 
+          ResponseParameters: 
+            "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-Meta-CustomLabels'"
+            "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,PUT'"
+            "method.response.header.Access-Control-Allow-Origin": "'*'"
+          StatusCode: "200"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates: 
+          "application/json": "{\"statusCode\": 200}"
+        TimeoutInMillis: 29000
+        Type: "MOCK"
+
+  apiModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: 'application/json'
+      RestApiId: !Ref apiRest
+      Schema: {}
+
+  apiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref apiDeployment
+      RestApiId: !Ref apiRest
+      StageName: dev
+
+  apiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - apiUploadPutMethod
+      - apiUploadOptionMethod
+    Properties:
+      RestApiId: !Ref apiRest
+
+  apiB2IamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      RoleName: "apiB2IamRole"
+      AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"apigateway.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+      MaxSessionDuration: 3600
+
+  apiB2IamPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: apiB2IamPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:PutObject'
+            Resource: !Join
+                  - ""
+                  - - "arn:aws:s3:::"
+                    - !Ref b2
+                    - /*
+      Roles: 
+        - !Ref apiB2IamRole
